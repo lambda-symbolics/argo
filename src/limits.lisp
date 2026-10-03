@@ -57,13 +57,33 @@ object, elements in one array, and characters in one number."
     (json--exceeded constraint limit description))
   nil)
 
+(-> json--proper-list-p (list) boolean)
+(defun json--proper-list-p (list)
+  "Return true when LIST is finite and ends in NIL."
+  (let ((slow list)
+        (fast list))
+    (loop
+      (dotimes (step 2)
+        (cond
+          ((null fast)
+           (return-from json--proper-list-p t))
+          ((atom fast)
+           (return-from json--proper-list-p nil)))
+        (setf fast (rest fast)))
+      (setf slow (rest slow))
+      (when (eq fast slow)
+        (return nil)))))
+
 (-> json--measure (t json-limits) null)
 (defun json--measure (value limits)
-  "Check VALUE, as prepared by JSON--ENCODING-VALUE, against LIMITS iteratively.
+  "Check the caller's VALUE against LIMITS iteratively, before anything recurses into it.
 
-A prepared value holds only string-keyed hash tables, simple vectors,
-strings, numbers, and yason's symbols, and never contains itself."
-  (let ((stack (list (cons value 0)))
+Objects, vectors, and proper non-empty lists are containers. A container
+that contains itself, or a dotted or circular list, signals
+JSON-UNREPRESENTABLE; other values without a JSON form are left for the
+encoder to report."
+  (let ((stack (list (list ':enter value 0)))
+        (active (make-hash-table :test #'eq))
         (nodes 0)
         (aggregate 0))
     (labels ((node ()
@@ -83,36 +103,59 @@ strings, numbers, and yason's symbols, and never contains itself."
                               ':aggregate-string-characters aggregate
                               "string characters in total")))
 
-             (enter (depth count constraint limit description)
+             (enter (container depth count constraint limit description)
+               (when (gethash container active)
+                 (error 'json-unrepresentable
+                        :value container
+                        :message "A JSON value contains itself."))
                (json--check (json-limits-maximum-depth limits) ':depth (1+ depth)
                             "levels of nesting")
-               (json--check limit constraint count description)))
+               (json--check limit constraint count description)
+               (setf (gethash container active) t)
+               (push (list ':leave container depth) stack))
+
+             (schedule (child depth)
+               (push (list ':enter child (1+ depth)) stack)))
 
       (loop while stack
-            for (current . depth) = (pop stack)
-            do (node)
-               (cond
-                 ((hash-table-p current)
-                  (enter depth (hash-table-count current) ':object-members
-                         (json-limits-maximum-object-members limits)
-                         "members in one object")
-                  (maphash (lambda (key child)
-                             (node)
-                             (text key t)
-                             (push (cons child (1+ depth)) stack))
-                           current))
-                 ((stringp current)
-                  (text current nil))
-                 ((vectorp current)
-                  (enter depth (length current) ':array-elements
-                         (json-limits-maximum-array-elements limits)
-                         "elements in one array")
-                  (loop for child across current
-                        do (push (cons child (1+ depth)) stack)))
-                 ((realp current)
-                  (json--check (json-limits-maximum-number-characters limits)
-                               ':number-characters
-                               (length (with-output-to-string (stream)
-                                         (yason:encode current stream)))
-                               "characters in one number"))))))
+            for (kind current depth) = (pop stack)
+            do (if (eq kind ':leave)
+                   (remhash current active)
+                   (progn
+                     (node)
+                     (cond
+                       ((hash-table-p current)
+                        (enter current depth (hash-table-count current) ':object-members
+                               (json-limits-maximum-object-members limits)
+                               "members in one object")
+                        (maphash (lambda (key child)
+                                   (node)
+                                   (when (stringp key)
+                                     (text key t))
+                                   (schedule child depth))
+                                 current))
+                       ((stringp current)
+                        (text current nil))
+                       ((vectorp current)
+                        (enter current depth (length current) ':array-elements
+                               (json-limits-maximum-array-elements limits)
+                               "elements in one array")
+                        (loop for child across current
+                              do (schedule child depth)))
+                       ((consp current)
+                        (unless (json--proper-list-p current)
+                          (error 'json-unrepresentable
+                                 :value current
+                                 :message "A dotted or circular list has no JSON representation."))
+                        (enter current depth (length current) ':array-elements
+                               (json-limits-maximum-array-elements limits)
+                               "elements in one array")
+                        (dolist (child current)
+                          (schedule child depth)))
+                       ((realp current)
+                        (json--check (json-limits-maximum-number-characters limits)
+                                     ':number-characters
+                                     (length (with-output-to-string (stream)
+                                               (yason:encode current stream)))
+                                     "characters in one number"))))))))
   nil)

@@ -24,23 +24,6 @@
     (arithmetic-error ()
       nil)))
 
-(-> json--proper-list-p (list) boolean)
-(defun json--proper-list-p (list)
-  "Return true when LIST is finite and ends in NIL."
-  (let ((slow list)
-        (fast list))
-    (loop
-      (dotimes (step 2)
-        (cond
-          ((null fast)
-           (return-from json--proper-list-p t))
-          ((atom fast)
-           (return-from json--proper-list-p nil)))
-        (setf fast (rest fast)))
-      (setf slow (rest slow))
-      (when (eq fast slow)
-        (return nil)))))
-
 (-> json--encoding-value (t) t)
 (defun json--encoding-value (value)
   "Return a validated copy of VALUE that yason encodes as argo's value model.
@@ -117,32 +100,37 @@ that contains itself."
 Signal JSON-UNREPRESENTABLE when VALUE has no JSON form. With LIMITS, VALUE
 is first checked against them and the result must fit their character
 bound; JSON-LIMIT-EXCEEDED reports the first excess."
+  (when limits
+    (json--measure value limits))
   (let* ((prepared (json--encoding-value value))
-         (encoded (progn
-                    (when limits
-                      (json--measure prepared limits))
-                    (with-output-to-string (stream)
-                      (json--yason-encode prepared stream)))))
+         (encoded (with-output-to-string (stream)
+                    (json--yason-encode prepared stream))))
     (when limits
       (json--check (json-limits-maximum-characters limits) ':characters
                    (length encoded) "characters"))
     encoded))
 
-(-> json-encode-utf8 (t) (vector (unsigned-byte 8)))
-(defun json-encode-utf8 (value)
-  "Encode VALUE directly as compact UTF-8 JSON octets.
+(-> json-encode-utf8 (t &key (:limits (or null json-limits))) (vector (unsigned-byte 8)))
+(defun json-encode-utf8 (value &key limits)
+  "Encode VALUE as compact UTF-8 JSON octets.
 
-Signal JSON-UNREPRESENTABLE when VALUE has no JSON form."
-  (let* ((prepared (json--encoding-value value))
-         (octet-stream (flexi-streams:make-in-memory-output-stream))
-         (character-stream
-           (flexi-streams:make-flexi-stream octet-stream :external-format ':utf-8)))
-    (unwind-protect
-         (progn
-           (json--yason-encode prepared character-stream)
-           (finish-output character-stream)
-           (flexi-streams:get-output-stream-sequence octet-stream))
-      (close character-stream))))
+Signal JSON-UNREPRESENTABLE when VALUE has no JSON form. LIMITS apply as in
+JSON-ENCODE, whose character bound counts the encoded characters, so a
+limited encoding passes through one string; an unlimited one streams the
+octets directly."
+  (if limits
+      (flexi-streams:string-to-octets (json-encode value :limits limits)
+                                      :external-format ':utf-8)
+      (let* ((prepared (json--encoding-value value))
+             (octet-stream (flexi-streams:make-in-memory-output-stream))
+             (character-stream
+               (flexi-streams:make-flexi-stream octet-stream :external-format ':utf-8)))
+        (unwind-protect
+             (progn
+               (json--yason-encode prepared character-stream)
+               (finish-output character-stream)
+               (flexi-streams:get-output-stream-sequence octet-stream))
+          (close character-stream)))))
 
 
 ;;;; -- Decoding --

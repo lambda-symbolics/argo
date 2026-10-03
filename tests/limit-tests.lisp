@@ -39,3 +39,32 @@
     (json-encode "abcdef" :limits (make-json-limits :maximum-characters 4)))
   (test-signals json-limit-exceeded
     (json-encode 1/3 :limits (make-json-limits :maximum-number-characters 5))))
+
+(define-test test-deep-values-are-refused-without-recursion
+  (let ((vector-tower (json-array))
+        (list-tower nil))
+    (dotimes (index 100000)
+      (setf vector-tower (json-array vector-tower)
+            list-tower (list list-tower)))
+    (dolist (value (list vector-tower list-tower))
+      (test-equal :depth
+                  (json-limit-exceeded-constraint
+                   (test-signals json-limit-exceeded
+                     (json-encode value :limits *json-strict-limits*))))
+      (test-signals json-limit-exceeded
+        (json-encode-utf8 value :limits *json-strict-limits*)))))
+
+(define-test test-limited-encodings-refuse-cycles-and-dotted-lists
+  (let ((cycle (json-array 1 nil)))
+    (setf (aref cycle 1) cycle)
+    (dolist (value (list cycle (cons 1 2)))
+      (test-signals json-unrepresentable
+        (json-encode value :limits (make-json-limits))))))
+
+(define-test test-limited-utf8-encoding
+  (test-equal "[\"é\"]"
+              (flexi-streams:octets-to-string
+               (json-encode-utf8 (json-array "é") :limits *json-strict-limits*)
+               :external-format :utf-8))
+  (test-signals json-limit-exceeded
+    (json-encode-utf8 "abcdef" :limits (make-json-limits :maximum-characters 4))))

@@ -70,7 +70,10 @@ nodes, characters in one string and across all strings, characters in one
 object key, members in one object, elements in one array, and characters in
 one number. A =NIL= bound is not enforced. When decoding, the bounds are
 checked during the grammar scan, before any value is built and without
-recursion, so a hostile document cannot exhaust the stack.
+recursion, so a hostile document cannot exhaust the stack. When encoding,
+=JSON-ENCODE= and =JSON-ENCODE-UTF8= check the caller's value the same way
+before copying it, so a deeply nested or cyclic value is refused with a
+condition rather than a stack overflow.
 =JSON-LIMIT-EXCEEDED= names the exceeded constraint and its limit. Without
 limits, nesting depth is bounded only by the Lisp stack.
 
