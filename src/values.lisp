@@ -99,19 +99,19 @@
 (defun json-get-present (object key)
   "Return KEY from JSON OBJECT and whether the key is present.
 
-JSON false is reported as NIL, while its marker stays in OBJECT so that
-re-encoding preserves the distinction from JSON null."
+The JSON-FALSE marker is reported as NIL, while it stays in OBJECT so that
+re-encoding preserves the distinction from JSON null. Any other value,
+including yason's false symbol, is returned exactly as stored."
   (multiple-value-bind (value present-p)
       (gethash key object)
-    (values (if (json-false-p value) nil value)
+    (values (if (eq value (json-false)) nil value)
             present-p)))
 
 (-> json-get (json-object string &optional t) t)
 (defun json-get (object key &optional default)
   "Return KEY from JSON OBJECT, or DEFAULT when the key is absent.
 
-JSON false is reported as NIL, while its marker stays in OBJECT so that
-re-encoding preserves the distinction from JSON null."
+The JSON-FALSE marker is reported as NIL, as by JSON-GET-PRESENT."
   (multiple-value-bind (value present-p)
       (json-get-present object key)
     (if present-p value default)))
