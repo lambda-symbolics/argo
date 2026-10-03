@@ -11,7 +11,10 @@
                 :serial t
                 :components ((:file "package")
                              (:file "conditions")
-                             (:file "values"))))
+                             (:file "values")
+                             (:file "limits")
+                             (:file "grammar")
+                             (:file "codec"))))
   :in-order-to ((asdf:test-op (asdf:test-op #:argo/tests))))
 
 (asdf:defsystem #:argo/tests
@@ -22,6 +25,8 @@
                 :serial t
                 :components ((:file "test-support")
                              (:file "value-tests")
+                             (:file "codec-tests")
+                             (:file "limit-tests")
                              (:file "tests"))))
   :perform (asdf:test-op (operation component)
              (declare (ignore operation component))
