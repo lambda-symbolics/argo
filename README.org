@@ -1,0 +1,97 @@
+#+TITLE: argo
+#+STARTUP: content
+
+=argo= is a JSON codec for Common Lisp whose value model keeps =false=,
+=null=, and the empty array apart without making any of them a trap when
+read. It decodes strictly by RFC 8259, refuses values that have no JSON form
+before writing anything, and can bound documents from untrusted peers.
+Encoding and value construction are done by yason; argo owns the value
+model, the grammar, and the failure reporting around it.
+
+* The value model
+
+| JSON   | Lisp                                                      |
+|--------+-----------------------------------------------------------|
+| object | an =EQUAL= hash table with string keys                    |
+| array  | a vector; a proper non-empty list also encodes as one     |
+| string | a string                                                  |
+| number | an integer or a finite float; a ratio encodes as a float  |
+| true   | =T=                                                       |
+| false  | the marker returned by =(json-false)=                     |
+| null   | =NIL=; =:NULL= also encodes as null                       |
+
+Decoded =false= is a distinct marker so that a document re-encodes exactly,
+while =JSON-GET= and =JSON-GET-PRESENT= report it as =NIL=. Both JSON false
+and JSON null therefore read as Lisp false, and neither can be mistaken for
+true, which is the trap in conventions that decode false as a symbol.
+
+#+BEGIN_SRC lisp
+(let ((object (argo:json-decode "{\"enabled\":false,\"items\":[]}")))
+  (argo:json-get object "enabled")             ; => NIL
+  (argo:json-false-p (gethash "enabled" object)) ; => T
+  (argo:json-encode object))                   ; => "{\"enabled\":false,\"items\":[]}"
+#+END_SRC
+
+Write false with =JSON-FALSE= or =JSON-BOOLEAN=. A =NIL= value encodes as
+null, and so does an empty list, so build arrays that may be empty with
+=JSON-ARRAY=. =JSON-OBJECT= builds an object from alternating string keys
+and values, and =JSON-OBJECT-COPY= detaches a shallow copy.
+
+* Decoding
+
+=JSON-DECODE= accepts exactly one JSON value surrounded by optional
+whitespace. Trailing commas, unquoted or non-string keys, leading zeros, and
+any text after the value are rejected. An iterative scan checks the grammar
+before any value is built, so =JSON-SYNTAX-ERROR= reports the character
+position and the expected token. Its report never quotes the source, which
+may hold credentials. =JSON-OBJECT-SOURCE-P= tells whether a string is
+exactly one JSON object.
+
+* Encoding
+
+=JSON-ENCODE= returns a compact string and =JSON-ENCODE-UTF8= returns UTF-8
+octets. The value is validated and copied first, so the caller's data never
+changes and nothing is written for a value with no JSON form: a symbol other
+than the boolean and null markers, a character, a function, a complex
+number, an infinite or NaN float, a dotted or circular list, a non-string
+object key, or a container that contains itself all signal
+=JSON-UNREPRESENTABLE=. Shared substructure is fine.
+
+* Limits
+
+#+BEGIN_SRC lisp
+(argo:json-decode body :limits argo:*json-strict-limits*)
+(argo:json-encode reply :limits (argo:make-json-limits :maximum-depth 32
+                                                       :maximum-characters 65536))
+#+END_SRC
+
+=JSON-LIMITS= bounds the source or output characters, nesting depth, total
+nodes, characters in one string and across all strings, characters in one
+object key, members in one object, elements in one array, and characters in
+one number. A =NIL= bound is not enforced. When decoding, the bounds are
+checked during the grammar scan, before any value is built and without
+recursion, so a hostile document cannot exhaust the stack.
+=JSON-LIMIT-EXCEEDED= names the exceeded constraint and its limit. Without
+limits, nesting depth is bounded only by the Lisp stack.
+
+* Conditions
+
+Every condition is a =JSON-ERROR= with a =JSON-ERROR-MESSAGE=.
+
+- =JSON-SYNTAX-ERROR= :: the source is not exactly one JSON value;
+  =JSON-SYNTAX-ERROR-POSITION= is the failing character index.
+- =JSON-LIMIT-EXCEEDED= :: =JSON-LIMIT-EXCEEDED-CONSTRAINT= and
+  =JSON-LIMIT-EXCEEDED-LIMIT= describe the bound.
+- =JSON-UNREPRESENTABLE= :: =JSON-UNREPRESENTABLE-VALUE= is the offending
+  value.
+
+* Development
+
+#+BEGIN_SRC sh
+./script/bootstrap
+./script/check
+#+END_SRC
+
+* License
+
+argo is distributed under the COLL-Attribution license in =LICENSE.lisp=.
