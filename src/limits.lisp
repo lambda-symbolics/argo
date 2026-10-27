@@ -13,9 +13,9 @@
 
 MAXIMUM-CHARACTERS bounds the source text when decoding and the encoded
 output when encoding. The other bounds apply to the value tree on both
-sides: nesting depth, total nodes counting object keys, characters in one
-string and across all strings, characters in one object key, members in one
-object, elements in one array, and characters in one number."
+sides. They limit nesting depth, total nodes counting object keys, characters
+in one string and across all strings, characters in one object key, members in
+one object, elements in one array, and characters in one number."
   (maximum-characters nil :type (or null (integer 0)) :read-only t)
   (maximum-depth nil :type (or null (integer 0)) :read-only t)
   (maximum-nodes nil :type (or null (integer 0)) :read-only t)
