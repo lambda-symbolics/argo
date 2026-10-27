@@ -39,7 +39,7 @@ the grammar."
 
              (node ()
                (incf nodes)
-               (json--check (bound #'json-limits-maximum-nodes) ':nodes nodes "nodes"))
+               (json--check (bound #'json-limits-maximum-nodes) ':nodes nodes))
 
              (complete ()
                (setf state (if stack ':next ':end)))
@@ -47,8 +47,7 @@ the grammar."
              (open-container (kind)
                (node)
                (push (cons kind 0) stack)
-               (json--check (bound #'json-limits-maximum-depth) ':depth (length stack)
-                            "levels of nesting")
+               (json--check (bound #'json-limits-maximum-depth) ':depth (length stack))
                (incf index)
                (setf state (if (eq kind ':object) ':key-or-close ':value-or-close)))
 
@@ -62,11 +61,9 @@ the grammar."
                  (incf (rest container))
                  (if (eq (first container) ':object)
                      (json--check (bound #'json-limits-maximum-object-members)
-                                  ':object-members (rest container)
-                                  "members in one object")
+                                  ':object-members (rest container))
                      (json--check (bound #'json-limits-maximum-array-elements)
-                                  ':array-elements (rest container)
-                                  "elements in one array"))))
+                                  ':array-elements (rest container)))))
 
              (scan-string (key-p)
                (node)
@@ -89,14 +86,12 @@ the grammar."
                    (incf characters)
                    (incf aggregate)
                    (json--check (bound #'json-limits-maximum-string-characters)
-                                ':string-characters characters "characters in one string")
+                                ':string-characters characters)
                    (when key-p
                      (json--check (bound #'json-limits-maximum-object-key-characters)
-                                  ':object-key-characters characters
-                                  "characters in one object key"))
+                                  ':object-key-characters characters))
                    (json--check (bound #'json-limits-maximum-aggregate-string-characters)
-                                ':aggregate-string-characters aggregate
-                                "string characters in total"))))
+                                ':aggregate-string-characters aggregate))))
 
              (scan-escape ()
                (let ((escape (and (< (1+ index) length) (char source (1+ index)))))
@@ -141,8 +136,7 @@ the grammar."
                      (incf index))
                    (scan-digits))
                  (json--check (bound #'json-limits-maximum-number-characters)
-                              ':number-characters (- index start)
-                              "characters in one number")))
+                              ':number-characters (- index start))))
 
              (scan-literal (literal)
                (node)
@@ -185,8 +179,7 @@ the grammar."
                (scan-string t)
                (setf state ':colon)))
 
-      (json--check (bound #'json-limits-maximum-characters) ':characters length
-                   "characters")
+      (json--check (bound #'json-limits-maximum-characters) ':characters length)
       (loop
         (loop while (and (< index length) (json--whitespace-p (char source index)))
               do (incf index))

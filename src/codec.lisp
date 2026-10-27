@@ -107,7 +107,7 @@ bound; JSON-LIMIT-EXCEEDED reports the first excess."
                      (json--yason-encode prepared stream))))
     (when limits
       (json--check (json-limits-maximum-characters limits) ':characters
-                   (length encoded) "characters"))
+                   (length encoded)))
     encoded))
 
 (-> json-encode-utf8 (t &key (:limits (or null json-limits))) (vector (unsigned-byte 8)))

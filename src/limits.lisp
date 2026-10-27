@@ -41,20 +41,32 @@ one object, elements in one array, and characters in one number."
 
 ;;;; -- Enforcement --
 
-(-> json--exceeded (keyword integer string) nil)
-(defun json--exceeded (constraint limit description)
-  "Signal that the bound CONSTRAINT, set to LIMIT and described by DESCRIPTION, was exceeded."
+(defparameter *json-limit-descriptions*
+  '((:nodes                       . "nodes")
+    (:string-characters           . "characters in one string")
+    (:object-key-characters       . "characters in one object key")
+    (:aggregate-string-characters . "string characters in total")
+    (:depth                       . "levels of nesting")
+    (:object-members              . "members in one object")
+    (:array-elements              . "elements in one array")
+    (:number-characters           . "characters in one number")
+    (:characters                  . "characters"))
+  "Each limit constraint with the words that describe its bound in error messages.")
+
+(-> json--exceeded (keyword integer) nil)
+(defun json--exceeded (constraint limit)
+  "Signal that the bound CONSTRAINT, set to LIMIT, was exceeded."
   (error 'json-limit-exceeded
          :constraint constraint
          :limit      limit
          :message    (format nil "The JSON document exceeds its limit of ~:D ~A."
-                             limit description)))
+                             limit (rest (assoc constraint *json-limit-descriptions*)))))
 
-(-> json--check (t keyword integer string) null)
-(defun json--check (limit constraint value description)
-  "Signal when VALUE exceeds LIMIT, unless LIMIT is NIL."
+(-> json--check (t keyword integer) null)
+(defun json--check (limit constraint value)
+  "Signal when VALUE exceeds LIMIT for CONSTRAINT, unless LIMIT is NIL."
   (when (and limit (> value limit))
-    (json--exceeded constraint limit description))
+    (json--exceeded constraint limit))
   nil)
 
 (-> json--proper-list-p (list) boolean)
@@ -88,29 +100,26 @@ encoder to report."
         (aggregate 0))
     (labels ((node ()
                (incf nodes)
-               (json--check (json-limits-maximum-nodes limits) ':nodes nodes "nodes"))
+               (json--check (json-limits-maximum-nodes limits) ':nodes nodes))
 
              (text (string key-p)
                (let ((characters (length string)))
                  (json--check (json-limits-maximum-string-characters limits)
-                              ':string-characters characters "characters in one string")
+                              ':string-characters characters)
                  (when key-p
                    (json--check (json-limits-maximum-object-key-characters limits)
-                                ':object-key-characters characters
-                                "characters in one object key"))
+                                ':object-key-characters characters))
                  (incf aggregate characters)
                  (json--check (json-limits-maximum-aggregate-string-characters limits)
-                              ':aggregate-string-characters aggregate
-                              "string characters in total")))
+                              ':aggregate-string-characters aggregate)))
 
-             (enter (container depth count constraint limit description)
+             (enter (container depth count constraint limit)
                (when (gethash container active)
                  (error 'json-unrepresentable
                         :value   container
                         :message "A JSON value contains itself."))
-               (json--check (json-limits-maximum-depth limits) ':depth (1+ depth)
-                            "levels of nesting")
-               (json--check limit constraint count description)
+               (json--check (json-limits-maximum-depth limits) ':depth (1+ depth))
+               (json--check limit constraint count)
                (setf (gethash container active) t)
                (push (list ':leave container depth) stack))
 
@@ -126,8 +135,7 @@ encoder to report."
                      (cond
                        ((hash-table-p current)
                         (enter current depth (hash-table-count current) ':object-members
-                               (json-limits-maximum-object-members limits)
-                               "members in one object")
+                               (json-limits-maximum-object-members limits))
                         (maphash (lambda (key child)
                                    (node)
                                    (when (stringp key)
@@ -138,8 +146,7 @@ encoder to report."
                         (text current nil))
                        ((vectorp current)
                         (enter current depth (length current) ':array-elements
-                               (json-limits-maximum-array-elements limits)
-                               "elements in one array")
+                               (json-limits-maximum-array-elements limits))
                         (loop for child across current
                               do (schedule child depth)))
                        ((consp current)
@@ -148,14 +155,12 @@ encoder to report."
                                  :value   current
                                  :message "A dotted or circular list has no JSON representation."))
                         (enter current depth (length current) ':array-elements
-                               (json-limits-maximum-array-elements limits)
-                               "elements in one array")
+                               (json-limits-maximum-array-elements limits))
                         (dolist (child current)
                           (schedule child depth)))
                        ((realp current)
                         (json--check (json-limits-maximum-number-characters limits)
                                      ':number-characters
                                      (length (with-output-to-string (stream)
-                                               (yason:encode current stream)))
-                                     "characters in one number"))))))))
+                                               (yason:encode current stream)))))))))))
   nil)
