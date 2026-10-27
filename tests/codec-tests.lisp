@@ -96,12 +96,12 @@
         (circular-list (list 1 2)))
     (setf (gethash "self" cyclic-object) cyclic-object)
     (setf (rest (rest circular-list)) circular-list)
-    (dolist (value (list :keyword 'symbol #\a #'car (complex 1 2)
+    (dolist (value (list :keyword 'symbol #\a #'first (complex 1 2)
                          (cons 1 2) circular-list cyclic-object
                          (let ((object (make-hash-table)))
                            (setf (gethash 1 object) 2)
                            object)
-                         (json-object "nested" (vector #'car))))
+                         (json-object "nested" (vector #'first))))
       (test-signals json-unrepresentable (json-encode value)))))
 
 (define-test test-shared-values-are-not-cycles
