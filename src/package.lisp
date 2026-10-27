@@ -1,7 +1,8 @@
 (defpackage #:argo
   (:use #:cl)
   (:import-from #:serapeum
-                #:->)
+                #:->
+                #:partial)
   (:export
    ;; Values
    #:json-object
