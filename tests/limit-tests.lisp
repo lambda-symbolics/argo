@@ -42,7 +42,7 @@
 
 (define-test test-deep-values-are-refused-without-recursion
   (let ((vector-tower (json-array))
-        (list-tower nil))
+        (list-tower   nil))
     (dotimes (index 100000)
       (setf vector-tower (json-array vector-tower)
             list-tower (list list-tower)))

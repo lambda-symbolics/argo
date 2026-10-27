@@ -11,7 +11,7 @@
 (defun json--unrepresentable (value control &rest arguments)
   "Signal JSON-UNREPRESENTABLE for VALUE, described by CONTROL and ARGUMENTS."
   (error 'json-unrepresentable
-         :value value
+         :value   value
          :message (apply #'format nil control arguments)))
 
 (-> json--finite-float-p (float) boolean)
@@ -103,8 +103,8 @@ bound; JSON-LIMIT-EXCEEDED reports the first excess."
   (when limits
     (json--measure value limits))
   (let* ((prepared (json--encoding-value value))
-         (encoded (with-output-to-string (stream)
-                    (json--yason-encode prepared stream))))
+         (encoded  (with-output-to-string (stream)
+                     (json--yason-encode prepared stream))))
     (when limits
       (json--check (json-limits-maximum-characters limits) ':characters
                    (length encoded) "characters"))
@@ -121,7 +121,7 @@ octets directly."
   (if limits
       (flexi-streams:string-to-octets (json-encode value :limits limits)
                                       :external-format ':utf-8)
-      (let* ((prepared (json--encoding-value value))
+      (let* ((prepared     (json--encoding-value value))
              (octet-stream (flexi-streams:make-in-memory-output-stream))
              (character-stream
                (flexi-streams:make-flexi-stream octet-stream :external-format ':utf-8)))
@@ -138,10 +138,10 @@ octets directly."
 (-> json--parse (string) t)
 (defun json--parse (source)
   "Build argo's value for SOURCE, which JSON--SCAN has already accepted."
-  (let ((yason:*parse-json-arrays-as-vectors* t)
+  (let ((yason:*parse-json-arrays-as-vectors*   t)
         (yason:*parse-json-booleans-as-symbols* t)
-        (yason:true t)
-        (yason:false ':json-false))
+        (yason:true                             t)
+        (yason:false                            ':json-false))
     (handler-case
         (yason:parse source)
       (error (condition)
@@ -150,8 +150,8 @@ octets directly."
         ;; parser's own report may quote the source, so only its type is kept.
         (error 'json-syntax-error
                :position 0
-               :message (format nil "A JSON value has no Lisp representation (~A)."
-                                (type-of condition)))))))
+               :message  (format nil "A JSON value has no Lisp representation (~A)."
+                                 (type-of condition)))))))
 
 (-> json-decode (string &key (:limits (or null json-limits))) t)
 (defun json-decode (source &key limits)

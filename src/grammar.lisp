@@ -17,8 +17,8 @@
   "Signal JSON-SYNTAX-ERROR at POSITION, describing it with CONTROL and ARGUMENTS."
   (error 'json-syntax-error
          :position position
-         :message (format nil "~? at character ~D."
-                          control arguments position)))
+         :message  (format nil "~? at character ~D."
+                           control arguments position)))
 
 (-> json--scan (string (or null json-limits)) null)
 (defun json--scan (source limits)
@@ -27,12 +27,12 @@
 Signal JSON-SYNTAX-ERROR for the first grammar violation and
 JSON-LIMIT-EXCEEDED for the first exceeded bound. A NIL LIMITS checks only
 the grammar."
-  (let ((length (length source))
-        (index 0)
+  (let ((length    (length source))
+        (index     0)
         ;; Each open container is a cons of :OBJECT or :ARRAY and its count.
-        (stack '())
-        (state ':value)
-        (nodes 0)
+        (stack     '())
+        (state     ':value)
+        (nodes     0)
         (aggregate 0))
     (labels ((bound (accessor)
                (and limits (funcall accessor limits)))
@@ -217,7 +217,7 @@ the grammar."
              (setf state ':value))
             (:next
              (let* ((object-p (eq (first (first stack)) ':object))
-                    (closer (if object-p #\} #\])))
+                    (closer   (if object-p #\} #\])))
                (cond
                  ((char= character #\,)
                   (incf index)

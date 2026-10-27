@@ -27,15 +27,15 @@ object, elements in one array, and characters in one number."
   (maximum-number-characters nil :type (or null (integer 0)) :read-only t))
 
 (defparameter *json-strict-limits*
-  (make-json-limits :maximum-characters (* 16 1024 1024)
-                    :maximum-depth 64
-                    :maximum-nodes 100000
-                    :maximum-string-characters (* 12 1024 1024)
+  (make-json-limits :maximum-characters                  (* 16 1024 1024)
+                    :maximum-depth                       64
+                    :maximum-nodes                       100000
+                    :maximum-string-characters           (* 12 1024 1024)
                     :maximum-aggregate-string-characters (* 12 1024 1024)
-                    :maximum-object-key-characters 4096
-                    :maximum-object-members 4096
-                    :maximum-array-elements 65536
-                    :maximum-number-characters 256)
+                    :maximum-object-key-characters       4096
+                    :maximum-object-members              4096
+                    :maximum-array-elements              65536
+                    :maximum-number-characters           256)
   "Bounds suited to documents from an untrusted peer.")
 
 
@@ -46,9 +46,9 @@ object, elements in one array, and characters in one number."
   "Signal that the bound CONSTRAINT, set to LIMIT and described by DESCRIPTION, was exceeded."
   (error 'json-limit-exceeded
          :constraint constraint
-         :limit limit
-         :message (format nil "The JSON document exceeds its limit of ~:D ~A."
-                          limit description)))
+         :limit      limit
+         :message    (format nil "The JSON document exceeds its limit of ~:D ~A."
+                             limit description)))
 
 (-> json--check (t keyword integer string) null)
 (defun json--check (limit constraint value description)
@@ -82,9 +82,9 @@ Objects, vectors, and proper non-empty lists are containers. A container
 that contains itself, or a dotted or circular list, signals
 JSON-UNREPRESENTABLE; other values without a JSON form are left for the
 encoder to report."
-  (let ((stack (list (list ':enter value 0)))
-        (active (make-hash-table :test #'eq))
-        (nodes 0)
+  (let ((stack     (list (list ':enter value 0)))
+        (active    (make-hash-table :test #'eq))
+        (nodes     0)
         (aggregate 0))
     (labels ((node ()
                (incf nodes)
@@ -106,7 +106,7 @@ encoder to report."
              (enter (container depth count constraint limit description)
                (when (gethash container active)
                  (error 'json-unrepresentable
-                        :value container
+                        :value   container
                         :message "A JSON value contains itself."))
                (json--check (json-limits-maximum-depth limits) ':depth (1+ depth)
                             "levels of nesting")
@@ -145,7 +145,7 @@ encoder to report."
                        ((consp current)
                         (unless (json--proper-list-p current)
                           (error 'json-unrepresentable
-                                 :value current
+                                 :value   current
                                  :message "A dotted or circular list has no JSON representation."))
                         (enter current depth (length current) ':array-elements
                                (json-limits-maximum-array-elements limits)

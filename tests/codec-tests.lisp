@@ -17,9 +17,9 @@
       (test-equal expected (json-encode value)))))
 
 (define-test test-round-trip-keeps-false-null-and-empty-arrays
-  (let* ((source "{\"f\":false,\"t\":true,\"n\":null,\"e\":[],\"o\":{},\"a\":[false,null,1]}")
+  (let* ((source  "{\"f\":false,\"t\":true,\"n\":null,\"e\":[],\"o\":{},\"a\":[false,null,1]}")
          (decoded (json-decode source))
-         (again (json-decode (json-encode decoded))))
+         (again   (json-decode (json-encode decoded))))
     (dolist (value (list decoded again))
       (test-assert (json-false-p (gethash "f" value)))
       (test-equal t (json-get value "t"))
@@ -75,7 +75,7 @@
         (test-equal position (json-syntax-error-position condition))))))
 
 (define-test test-syntax-errors-do-not-quote-the-source
-  (let* ((secret "sk-secret-token")
+  (let* ((secret    "sk-secret-token")
          (condition (test-signals json-syntax-error
                       (json-decode (format nil "{\"key\":\"~A\",}" secret)))))
     (test-assert (null (search secret (princ-to-string condition))))))
@@ -106,7 +106,7 @@
 
 (define-test test-shared-values-are-not-cycles
   (let* ((shared (json-array 1))
-         (value (json-array shared shared)))
+         (value  (json-array shared shared)))
     (test-equal "[[1],[1]]" (json-encode value))))
 
 (define-test test-ratios-encode-as-floats
