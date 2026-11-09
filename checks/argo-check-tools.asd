@@ -5,6 +5,7 @@
 ;;; installing checks/qlfile also installs cheque's own dependencies. Nothing
 ;;; loads it.
 
+;; CL-UNICODE's conditional build dependency is absent from qlot's static plan.
 (asdf:defsystem #:argo-check-tools
   :description "The development tools argo's source checks load."
-  :depends-on  (#:cheque))
+  :depends-on  (#:cheque #:flexi-streams))
