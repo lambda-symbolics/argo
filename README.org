@@ -37,6 +37,10 @@ null, and so does an empty list, so build arrays that may be empty with
 =JSON-ARRAY=. =JSON-OBJECT= builds an object from alternating string keys
 and values, and =JSON-OBJECT-COPY= detaches a shallow copy.
 
+The shallow copy and access functions accept any hash table without validating
+its keys; =JSON-OBJECT-P= checks string keys. =JSON-GET-PRESENT= accepts
+=:false-value= to present a caller-selected marker as =NIL=.
+
 * Decoding
 
 =JSON-DECODE= accepts exactly one JSON value surrounded by optional
@@ -46,6 +50,12 @@ before any value is built, so =JSON-SYNTAX-ERROR= reports the character
 position and the expected token. Its report never quotes the source, which
 may hold credentials. =JSON-OBJECT-SOURCE-P= tells whether a string is
 exactly one JSON object.
+
+Use =:false-value= to select a decoded false marker and =:null-value= to
+select =NIL= or =:NULL=. Encoding accepts the same =:false-value= option,
+translating markers during its existing validation/copy pass. Parser settings
+bound by callers do not affect decoding. =JSON-TRAILING-DATA=, a subclass of
+=JSON-SYNTAX-ERROR=, distinguishes trailing text from a malformed value.
 
 * Encoding
 

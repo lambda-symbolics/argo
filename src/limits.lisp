@@ -86,8 +86,8 @@ one object, elements in one array, and characters in one number."
       (when (eq fast slow)
         (return nil)))))
 
-(-> json--measure (t json-limits) null)
-(defun json--measure (value limits)
+(-> json--measure (t json-limits t) null)
+(defun json--measure (value limits false-value)
   "Check the caller's VALUE against LIMITS iteratively, before anything recurses into it.
 
 Objects, vectors, and proper non-empty lists are containers. A container
@@ -133,6 +133,8 @@ encoder to report."
                    (progn
                      (node)
                      (cond
+                       ((eq current false-value)
+                        nil)
                        ((hash-table-p current)
                         (enter current depth (hash-table-count current) ':object-members
                                (json-limits-maximum-object-members limits))

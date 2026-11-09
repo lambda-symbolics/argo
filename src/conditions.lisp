@@ -43,3 +43,7 @@ source, which may hold credentials or other private data."))
     :reader        json-unrepresentable-value
     :documentation "The value with no JSON representation."))
   (:documentation "Encoding met a value that has no JSON representation."))
+
+(define-condition json-trailing-data (json-syntax-error)
+  ()
+  (:documentation "A complete JSON value is followed by non-whitespace text."))

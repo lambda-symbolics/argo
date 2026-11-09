@@ -190,7 +190,8 @@ the grammar."
         (let ((character (char source index)))
           (ecase state
             (:end
-             (json--syntax index "Unexpected text after the JSON value"))
+             (error 'json-trailing-data :position index
+                                        :message  "Unexpected text after the JSON value."))
             (:value
              (scan-value character))
             (:value-or-close

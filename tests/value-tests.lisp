@@ -47,3 +47,15 @@
   (test-assert (not (json-string= 1 "1")))
   (test-assert (json-string-member-p "b" '("a" "b")))
   (test-assert (not (json-string-member-p :b '("a" "b")))))
+
+(define-test test-shallow-hash-table-compatibility
+  (let* ((child  (vector 1))
+         (object (make-hash-table :test #'eq)))
+    (setf (gethash ':key object) child)
+    (test-assert (not (json-object-p object)))
+    (test-equal (list child t) (multiple-value-list (json-get-present object ':key)))
+    (test-assert (eq child (json-get object ':key)))
+    (let ((copy (json-object-copy object)))
+      (test-assert (not (eq copy object)))
+      (test-assert (eq child (gethash ':key copy)))
+      (test-equal (hash-table-test object) (hash-table-test copy)))))

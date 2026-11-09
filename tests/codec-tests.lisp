@@ -111,3 +111,60 @@
 
 (define-test test-ratios-encode-as-floats
   (test-equal 0.5d0 (json-decode (json-encode 1/2)) :test #'=))
+
+(define-test test-codec-marker-options
+  (let* ((marker (gensym "FALSE"))
+         (source "{\"f\":false,\"n\":null,\"t\":true,\"a\":[false,null,[],{}]}")
+         (value  (json-decode source :false-value marker :null-value ':null)))
+    (test-assert (eq (gethash "f" value) marker))
+    (test-equal ':null (gethash "n" value))
+    (test-equal t (gethash "t" value))
+    (test-equal (list nil t)
+                (multiple-value-list (json-get-present value "f" :false-value marker)))
+    (test-equal '(nil nil)
+                (multiple-value-list
+                 (json-get-present value "missing" :false-value marker)))
+    (test-equal source (json-encode value :false-value marker))
+    (test-equal source
+                (flexi-streams:octets-to-string
+                 (json-encode-utf8 value :false-value marker)
+                 :external-format ':utf-8))
+    (let ((limits (make-json-limits :maximum-nodes 20)))
+      (test-equal source (json-encode value :limits limits :false-value marker))
+      (test-equal source
+                  (flexi-streams:octets-to-string
+                   (json-encode-utf8 value :limits limits :false-value marker)
+                   :external-format ':utf-8)))
+    (test-signals json-limit-exceeded
+      (json-decode source :false-value marker
+                          :limits      (make-json-limits :maximum-nodes 1)))
+    (test-signals json-limit-exceeded
+      (json-encode value :false-value marker
+                        :limits       (make-json-limits :maximum-characters 1))))
+  ;; Markers can themselves be containers. Measurement treats the marker as
+  ;; one scalar, just as encoding does, without traversing it.
+  (let ((marker (vector 1 2)))
+    (test-equal "false" (json-encode marker :false-value marker
+                                         :limits         (make-json-limits :maximum-nodes 1)))))
+
+(define-test test-decoding-ignores-ambient-parser-policy
+  (let ((yason:*parse-object-as*                ':plist)
+        (yason:*parse-object-as-alist*          t)
+        (yason:*parse-object-key-fn*            #'string-upcase)
+        (yason:*parse-json-arrays-as-vectors*   nil)
+        (yason:*parse-json-booleans-as-symbols* nil)
+        (yason:*parse-json-null-as-keyword*     t)
+        (yason:true                             ':ambient-true)
+        (yason:false                            ':ambient-false))
+    (let ((value (json-decode "{\"key\":[true,false,null]}")))
+      (test-assert (hash-table-p value))
+      (test-equal #(t :json-false nil) (gethash "key" value) :test #'equalp)
+      (test-equal '(nil nil) (multiple-value-list (gethash "KEY" value)))
+      (test-equal "{\"key\":[true,false,null]}" (json-encode value)))))
+
+(define-test test-trailing-data-condition
+  (dolist (source '("{} {}" "[] trailing" "true false" "1 2"))
+    (test-signals json-trailing-data (json-decode source)))
+  (dolist (source '("{\"private\":}" "[1,]" "tru"))
+    (let ((condition (test-signals json-syntax-error (json-decode source))))
+      (test-assert (not (typep condition 'json-trailing-data))))))

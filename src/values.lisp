@@ -82,7 +82,7 @@
   "Return a JSON array containing ELEMENTS, which encodes as [] when empty."
   (coerce elements 'simple-vector))
 
-(-> json-object-copy (json-object) json-object)
+(-> json-object-copy (hash-table) hash-table)
 (defun json-object-copy (object)
   "Return a detached shallow copy of JSON OBJECT."
   (let ((copy (make-hash-table :test (hash-table-test object)
@@ -95,25 +95,19 @@
 
 ;;;; -- Access --
 
-(-> json-get-present (json-object string) (values t boolean))
-(defun json-get-present (object key)
-  "Return KEY from JSON OBJECT and whether the key is present.
+(-> json-get-present (hash-table t &key (:false-value t)) (values t boolean))
+(defun json-get-present (object key &key (false-value (json-false)))
+  "Return KEY from OBJECT and whether the key is present.
 
-The JSON-FALSE marker is reported as NIL, while it stays in OBJECT so that
-re-encoding preserves the distinction from JSON null. Any other value,
-including yason's false symbol, is returned exactly as stored."
-  (multiple-value-bind (value present-p)
-      (gethash key object)
-    (values (if (eq value (json-false)) nil value)
-            present-p)))
+Report FALSE-VALUE as NIL without modifying OBJECT. Other values, including
+Yason's false symbol unless selected as FALSE-VALUE, are returned unchanged."
+  (multiple-value-bind (value present-p) (gethash key object)
+    (values (if (eq value false-value) nil value) present-p)))
 
-(-> json-get (json-object string &optional t) t)
+(-> json-get (hash-table t &optional t) t)
 (defun json-get (object key &optional default)
-  "Return KEY from JSON OBJECT, or DEFAULT when the key is absent.
-
-The JSON-FALSE marker is reported as NIL, as by JSON-GET-PRESENT."
-  (multiple-value-bind (value present-p)
-      (json-get-present object key)
+  "Return KEY from OBJECT, or DEFAULT when absent, presenting JSON-FALSE as NIL."
+  (multiple-value-bind (value present-p) (json-get-present object key)
     (if present-p value default)))
 
 (-> json-string= (t string) boolean)
