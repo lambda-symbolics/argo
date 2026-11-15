@@ -43,7 +43,6 @@
    #:json-syntax-error
    #:json-syntax-error-position
    #:json-trailing-data
-   #:json-duplicate-key
    #:json-limit-exceeded
    #:json-limit-exceeded-constraint
    #:json-limit-exceeded-limit

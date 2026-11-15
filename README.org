@@ -93,9 +93,6 @@ Every condition is a =JSON-ERROR= with a =JSON-ERROR-MESSAGE=.
 
 - =JSON-SYNTAX-ERROR= :: the source is not exactly one JSON value;
   =JSON-SYNTAX-ERROR-POSITION= is the failing character index.
-- =JSON-DUPLICATE-KEY= :: a syntax error that only
-  =(json-decode source :unique-keys-p t)= signals, when an object repeats a
-  key. Without the option the last value is kept.
 - =JSON-LIMIT-EXCEEDED= :: =JSON-LIMIT-EXCEEDED-CONSTRAINT= and
   =JSON-LIMIT-EXCEEDED-LIMIT= describe the bound.
 - =JSON-UNREPRESENTABLE= :: =JSON-UNREPRESENTABLE-VALUE= is the offending

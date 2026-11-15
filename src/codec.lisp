@@ -148,19 +148,16 @@ through one string; an unlimited encoding streams octets directly."
                                  (type-of condition)))))))
 
 (-> json-decode (string &key (:limits (or null json-limits))
-                             (:false-value t) (:null-value (member nil :null))
-                             (:unique-keys-p boolean)) t)
-(defun json-decode (source &key limits (false-value (json-false)) null-value unique-keys-p)
+                             (:false-value t) (:null-value (member nil :null))) t)
+(defun json-decode (source &key limits (false-value (json-false)) null-value)
   "Decode exactly one RFC 8259 JSON value and surrounding whitespace.
 
 Objects become EQUAL hash tables, arrays vectors, true T, false FALSE-VALUE,
 and null NULL-VALUE (NIL or :NULL), independently of ambient Yason bindings.
 Malformed input signals payload-free JSON-SYNTAX-ERROR; trailing text signals
-its JSON-TRAILING-DATA subclass. An object that repeats a key keeps the last
-value, unless UNIQUE-KEYS-P is true: then it signals JSON-DUPLICATE-KEY, another
-subclass. LIMITS apply during the grammar scan before building any values,
-signaling JSON-LIMIT-EXCEEDED."
-  (json--scan source limits unique-keys-p)
+its JSON-TRAILING-DATA subclass. LIMITS apply during the grammar scan before
+building any values, signaling JSON-LIMIT-EXCEEDED."
+  (json--scan source limits)
   (json--parse source false-value null-value))
 
 (-> json-object-source-p (t) boolean)

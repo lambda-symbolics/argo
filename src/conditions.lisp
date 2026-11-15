@@ -47,7 +47,3 @@ source, which may hold credentials or other private data."))
 (define-condition json-trailing-data (json-syntax-error)
   ()
   (:documentation "A complete JSON value is followed by non-whitespace text."))
-
-(define-condition json-duplicate-key (json-syntax-error)
-  ()
-  (:documentation "An object repeats a key where the caller required unique keys."))
