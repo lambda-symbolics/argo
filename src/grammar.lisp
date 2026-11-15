@@ -20,16 +20,18 @@
          :message  (format nil "~? at character ~D."
                            control arguments position)))
 
-(-> json--scan (string (or null json-limits)) null)
-(defun json--scan (source limits)
+(-> json--scan (string (or null json-limits) boolean) null)
+(defun json--scan (source limits unique-keys-p)
   "Check that SOURCE holds exactly one JSON value and whitespace, within LIMITS.
 
 Signal JSON-SYNTAX-ERROR for the first grammar violation and
 JSON-LIMIT-EXCEEDED for the first exceeded bound. A NIL LIMITS checks only
-the grammar."
+the grammar. With UNIQUE-KEYS-P, signal JSON-DUPLICATE-KEY for the first key
+an object repeats."
   (let ((length    (length source))
         (index     0)
-        ;; Each open container is a cons of :OBJECT or :ARRAY and its count.
+        ;; Each open container lists :OBJECT or :ARRAY, its count, and the
+        ;; keys seen so far when an object's keys must be unique.
         (stack     '())
         (state     ':value)
         (nodes     0)
@@ -46,7 +48,9 @@ the grammar."
 
              (open-container (kind)
                (node)
-               (push (cons kind 0) stack)
+               (push (list kind 0 (and unique-keys-p (eq kind ':object)
+                                       (make-hash-table :test #'equal)))
+                     stack)
                (json--check (bound #'json-limits-maximum-depth) ':depth (length stack))
                (incf index)
                (setf state (if (eq kind ':object) ':key-or-close ':value-or-close)))
@@ -58,12 +62,12 @@ the grammar."
 
              (count-member ()
                (let ((container (first stack)))
-                 (incf (rest container))
+                 (incf (second container))
                  (if (eq (first container) ':object)
                      (json--check (bound #'json-limits-maximum-object-members)
-                                  ':object-members (rest container))
+                                  ':object-members (second container))
                      (json--check (bound #'json-limits-maximum-array-elements)
-                                  ':array-elements (rest container)))))
+                                  ':array-elements (second container)))))
 
              (scan-string (key-p)
                (node)
@@ -176,8 +180,21 @@ the grammar."
                (unless (char= character #\")
                  (json--syntax index "Expected a string object key"))
                (count-member)
-               (scan-string t)
-               (setf state ':colon)))
+               (let ((start index))
+                 (scan-string t)
+                 (when unique-keys-p
+                   (note-key start)))
+               (setf state ':colon))
+
+             (note-key (start)
+               (let ((keys (third (first stack)))
+                     (key  (yason:parse (subseq source start index))))
+                 (when (gethash key keys)
+                   (error 'json-duplicate-key
+                          :position start
+                          :message  (format nil "An object repeats a key at character ~D."
+                                            start)))
+                 (setf (gethash key keys) t))))
 
       (json--check (bound #'json-limits-maximum-characters) ':characters length)
       (loop

@@ -162,6 +162,13 @@
       (test-equal '(nil nil) (multiple-value-list (gethash "KEY" value)))
       (test-equal "{\"key\":[true,false,null]}" (json-encode value)))))
 
+(define-test test-unique-keys
+  (dolist (source '("{\"a\":1,\"a\":2}" "{\"a\":1,\"\\u0061\":2}" "[{\"a\":{\"b\":1,\"b\":2}}]"))
+    (test-signals json-duplicate-key (json-decode source :unique-keys-p t))
+    (test-assert (json-decode source)))
+  (test-equal 2 (hash-table-count (json-decode "{\"a\":{\"a\":1},\"b\":{\"a\":2}}"
+                                               :unique-keys-p t))))
+
 (define-test test-trailing-data-condition
   (dolist (source '("{} {}" "[] trailing" "true false" "1 2"))
     (test-signals json-trailing-data (json-decode source)))
