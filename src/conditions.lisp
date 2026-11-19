@@ -10,7 +10,7 @@
     :documentation "A human-readable explanation of the failure."))
   (:report (lambda (condition stream)
              (write-string (json-error-message condition) stream)))
-  (:documentation "The parent of every condition argo signals."))
+  (:documentation "The parent of every condition signalled by argo."))
 
 (define-condition json-syntax-error (json-error)
   ((position
@@ -21,8 +21,8 @@
   (:documentation
    "The source is not exactly one well-formed JSON value.
 
-The report names the position and the expected token but never quotes the
-source, which may hold credentials or other private data."))
+The report contains the position and the expected token.
+However, it does not contain the source, because it may contain sensitive data."))
 
 (define-condition json-limit-exceeded (json-error)
   ((constraint
@@ -42,7 +42,7 @@ source, which may hold credentials or other private data."))
     :initarg       :value
     :reader        json-unrepresentable-value
     :documentation "The value with no JSON representation."))
-  (:documentation "Encoding met a value that has no JSON representation."))
+  (:documentation "Encoding encountered a value that has no JSON representation."))
 
 (define-condition json-trailing-data (json-syntax-error)
   ()

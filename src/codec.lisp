@@ -2,10 +2,10 @@
 
 ;;;; -- Encoding --
 
-;;; Every value is validated and copied before yason sees it. yason fails on
-;;; some values in ways that are not ordinary errors, and the copy also lets
-;;; JSON-FALSE markers and lists become what yason expects without touching
-;;; the caller's data.
+;;; Every value is validated and copied before being passed to yason.
+;;; yason fails on some values in ways that are not ordinary errors,
+;;; and the copy also turns JSON-FALSE markers and lists into what yason
+;;; expects without touching the original data.
 
 (-> json--unrepresentable (t string &rest t) nil)
 (defun json--unrepresentable (value control &rest arguments)
@@ -33,7 +33,7 @@ unrepresentable values signal JSON-UNREPRESENTABLE."
   (let ((active (make-hash-table :test #'eq)))
     (labels ((container (container function)
                (when (gethash container active)
-                 (json--unrepresentable container "A JSON value contains itself."))
+                 (json--unrepresentable container "A JSON value contains itself, infinite size not allowed, naughty naughty."))
                (setf (gethash container active) t)
                (prog1 (funcall function)
                  (remhash container active)))
@@ -81,7 +81,7 @@ unrepresentable values signal JSON-UNREPRESENTABLE."
 
 (-> json--yason-encode (t stream) null)
 (defun json--yason-encode (prepared stream)
-  "Write PREPARED as compact JSON, independently of ambient boolean bindings."
+  "Write PREPARED as compact JSON, regardless of ambient boolean bindings."
   (let ((yason:true  'yason:true)
         (yason:false 'yason:false))
     (yason:encode prepared stream))
@@ -91,9 +91,9 @@ unrepresentable values signal JSON-UNREPRESENTABLE."
 (defun json-encode (value &key limits (false-value (json-false)))
   "Encode VALUE as one compact JSON string, translating FALSE-VALUE as false.
 
-Signal JSON-UNREPRESENTABLE when VALUE has no JSON form. With LIMITS, VALUE
-is first checked against them and the result must fit their character
-bound; JSON-LIMIT-EXCEEDED reports the first excess."
+Signal JSON-UNREPRESENTABLE when VALUE has no valid JSON representation.
+If LIMITS is set, VALUE is first checked against the limits; JSON-LIMIT-EXCEEDED
+reports the first limit excess."
   (when limits
     (json--measure value limits false-value))
   (let* ((prepared (json--encoding-value value false-value))
@@ -110,7 +110,7 @@ bound; JSON-LIMIT-EXCEEDED reports the first excess."
   "Encode VALUE as compact UTF-8 JSON octets.
 
 LIMITS and FALSE-VALUE apply as in JSON-ENCODE. A limited encoding passes
-through one string; an unlimited encoding streams octets directly."
+through one string, an unlimited encoding streams octets directly."
   (if limits
       (flexi-streams:string-to-octets
        (json-encode value :limits limits :false-value false-value)
@@ -141,7 +141,7 @@ through one string; an unlimited encoding streams octets directly."
                             :json-nulls-as-keyword (eq null-value ':null))
       (error (condition)
         ;; A valid value may exceed Lisp's numeric range. Parser reports may
-        ;; quote the source; retain only the condition type.
+        ;; quote the source, retain only the condition type.
         (error 'json-syntax-error
                :position 0
                :message  (format nil "A JSON value has no Lisp representation (~A)."
@@ -152,17 +152,20 @@ through one string; an unlimited encoding streams octets directly."
 (defun json-decode (source &key limits (false-value (json-false)) null-value)
   "Decode exactly one RFC 8259 JSON value and surrounding whitespace.
 
-Objects become EQUAL hash tables, arrays vectors, true T, false FALSE-VALUE,
-and null NULL-VALUE (NIL or :NULL), independently of ambient Yason bindings.
-Malformed input signals payload-free JSON-SYNTAX-ERROR; trailing text signals
-its JSON-TRAILING-DATA subclass. LIMITS apply during the grammar scan before
-building any values, signaling JSON-LIMIT-EXCEEDED."
+Objects are turned into EQUAL hash tables, arrays vectors, true T, false FALSE-VALUE,
+and null NULL-VALUE (NIL or :NULL), regardless of ambient Yason bindings.
+
+- Malformed input causes payload-free JSON-SYNTAX-ERROR;
+- Trailing text signals its JSON-TRAILING-DATA subclass.
+
+LIMITS apply during the grammar scan before building any values,
+which signals JSON-LIMIT-EXCEEDED."
   (json--scan source limits)
   (json--parse source false-value null-value))
 
 (-> json-object-source-p (t) boolean)
 (defun json-object-source-p (source)
-  "Return true when SOURCE is a string holding exactly one JSON object and whitespace."
+  "Return true when SOURCE is a string holding exactly one JSON object (whitespace allowed)."
   (and (stringp source)
        (handler-case
            (json-object-p (json-decode source))

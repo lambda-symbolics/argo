@@ -1,5 +1,5 @@
 (asdf:defsystem #:argo
-  :description "A JSON value model for Common Lisp that keeps false, null, and empty arrays apart."
+  :description "A JSON codec library for Common Lisp that distinguishes javascript bullshit like false, null, and empty arrays"
   :author      "Lambda Symbolics OÜ"
   :license     "COLL-Attribution"
   :version     "0.1.0"

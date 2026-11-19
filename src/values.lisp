@@ -14,9 +14,9 @@
 ;;;   false   the marker returned by JSON-FALSE
 ;;;   null    NIL; :NULL also encodes as null
 ;;;
-;;; Decoded false is a distinct marker so that a document re-encodes exactly,
+;;; Decoded false is a distinct marker so that a document is re-encoded exactly,
 ;;; and JSON-GET reports it as NIL so that false and null both read as Lisp
-;;; false. Write false with JSON-FALSE or JSON-BOOLEAN; a NIL value encodes as
+;;; false. Write false with JSON-FALSE or JSON-BOOLEAN; a NIL value is encoded as
 ;;; null, and so does an empty list, so build arrays that may be empty with
 ;;; JSON-ARRAY.
 
@@ -32,7 +32,7 @@
   '(satisfies json-object-p))
 
 (deftype json-value ()
-  "A value argo can encode, before its contents are checked."
+  "A value argo can encode."
   '(or null string number symbol vector list json-object))
 
 
@@ -40,7 +40,7 @@
 
 (-> json-false () keyword)
 (defun json-false ()
-  "Return the marker that represents JSON false."
+  "Return the marker representing JSON false."
   ':json-false)
 
 (-> json-false-p (t) boolean)

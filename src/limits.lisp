@@ -11,9 +11,11 @@
                                   maximum-number-characters)))
   "Structural bounds for one JSON document; a NIL bound is not enforced.
 
-MAXIMUM-CHARACTERS bounds the source text when decoding and the encoded
-output when encoding. The other bounds apply to the value tree on both
-sides. They limit nesting depth, total nodes counting object keys, characters
+The source text is bounded by MAXIMUM-CHARACTERS when decoding, and the encoded
+output is bounded when encoding.
+
+The other bounds apply to the value tree on both sides.
+They limit nesting depth, total nodes counting object keys, characters
 in one string and across all strings, characters in one object key, members in
 one object, elements in one array, and characters in one number."
   (maximum-characters nil :type (or null (integer 0)) :read-only t)
@@ -36,7 +38,7 @@ one object, elements in one array, and characters in one number."
                     :maximum-object-members              4096
                     :maximum-array-elements              65536
                     :maximum-number-characters           256)
-  "Bounds suited to documents from an untrusted peer.")
+  "Bounds used to validate to untrusted documents.")
 
 
 ;;;; -- Enforcement --
@@ -45,13 +47,13 @@ one object, elements in one array, and characters in one number."
   '((:nodes                       . "nodes")
     (:string-characters           . "characters in one string")
     (:object-key-characters       . "characters in one object key")
-    (:aggregate-string-characters . "string characters in total")
+    (:aggregate-string-characters . "total string character limit")
     (:depth                       . "levels of nesting")
     (:object-members              . "members in one object")
     (:array-elements              . "elements in one array")
     (:number-characters           . "characters in one number")
     (:characters                  . "characters"))
-  "Each limit constraint with the words that describe its bound in error messages.")
+  "A list of all limit constraints associated with their printable names for error messages.")
 
 (-> json--exceeded (keyword integer) nil)
 (defun json--exceeded (constraint limit)
@@ -88,10 +90,11 @@ one object, elements in one array, and characters in one number."
 
 (-> json--measure (t json-limits t) null)
 (defun json--measure (value limits false-value)
-  "Check the caller's VALUE against LIMITS iteratively, before anything recurses into it.
+  "Check the caller's VALUE against LIMITS iteratively.
 
-Objects, vectors, and proper non-empty lists are containers. A container
-that contains itself, or a dotted or circular list, signals
+Objects, vectors, and proper non-empty lists are containers.
+
+A container that contains itself, or a dotted or circular list, signals
 JSON-UNREPRESENTABLE; other values without a JSON form are left for the
 encoder to report."
   (let ((stack     (list (list ':enter value 0)))

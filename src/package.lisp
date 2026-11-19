@@ -1,5 +1,5 @@
 (defpackage #:argo
-  (:documentation "A JSON value model that keeps false, null, and empty arrays apart, with a bounded codec.")
+  (:documentation "A bounded-codec JSON library with a value model that distinguishes false, null, and empty arrays.")
   (:use #:cl)
   (:import-from #:serapeum
                 #:->

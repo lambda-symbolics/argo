@@ -3,7 +3,7 @@
 ;;;; -- Test Registry --
 
 (defvar *test-cases* nil
-  "The registered test names and functions, newest first.")
+  "The registered test names and functions, sorted by newest.")
 
 (defmacro define-test (name &body body)
   "Define and register one test named NAME."

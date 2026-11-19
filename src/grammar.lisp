@@ -4,8 +4,8 @@
 
 ;;; JSON-DECODE scans every document against the RFC 8259 grammar before any
 ;;; value is built. The scan is iterative, so deep nesting cannot exhaust the
-;;; stack, it enforces JSON-LIMITS as it goes, and its errors name a position
-;;; and the expected token without quoting the source, which may hold secrets.
+;;; stack, it enforces JSON-LIMITS as it goes, and its errors contain the position
+;;; and expected token, but do not contain the source, which may hold secrets.
 
 (-> json--whitespace-p (character) boolean)
 (defun json--whitespace-p (character)
@@ -14,7 +14,7 @@
 
 (-> json--syntax (integer string &rest t) nil)
 (defun json--syntax (position control &rest arguments)
-  "Signal JSON-SYNTAX-ERROR at POSITION, describing it with CONTROL and ARGUMENTS."
+  "Signal JSON-SYNTAX-ERROR which happened at POSITION with CONTROL and ARGUMENTS."
   (error 'json-syntax-error
          :position position
          :message  (format nil "~? at character ~D."
@@ -25,11 +25,11 @@
   "Check that SOURCE holds exactly one JSON value and whitespace, within LIMITS.
 
 Signal JSON-SYNTAX-ERROR for the first grammar violation and
-JSON-LIMIT-EXCEEDED for the first exceeded bound. A NIL LIMITS checks only
-the grammar."
+JSON-LIMIT-EXCEEDED for the first exceeded bound. A NIL LIMITS only
+checks the grammar."
   (let ((length    (length source))
         (index     0)
-        ;; Each open container is a cons of :OBJECT or :ARRAY and its count.
+        ;; Each open container is a cons of :OBJECT or :ARRAY and the count.
         (stack     '())
         (state     ':value)
         (nodes     0)
