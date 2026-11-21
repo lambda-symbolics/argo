@@ -14,7 +14,8 @@
                               (:file "values")
                               (:file "limits")
                               (:file "grammar")
-                              (:file "codec"))))
+                              (:file "codec")
+                              (:file "format"))))
   :in-order-to ((asdf:test-op (asdf:test-op #:argo/tests))))
 
 (asdf:defsystem #:argo/tests

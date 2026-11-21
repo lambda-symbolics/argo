@@ -68,3 +68,39 @@
                :external-format :utf-8))
   (test-signals json-limit-exceeded
     (json-encode-utf8 "abcdef" :limits (make-json-limits :maximum-characters 4))))
+
+(define-test test-transform-limits
+  (dolist (function (list #'json-normalize #'json-encode-sorted #'json-encode-pretty))
+    (dolist (case (list (list (make-json-limits :maximum-depth 1) (vector #()) :depth)
+                        (list (make-json-limits :maximum-nodes 2) (json-object "a" 1) :nodes)
+                        (list (make-json-limits :maximum-string-characters 2) "abc" :string-characters)
+                        (list (make-json-limits :maximum-aggregate-string-characters 3)
+                              (vector "ab" "cd") :aggregate-string-characters)
+                        (list (make-json-limits :maximum-object-key-characters 1)
+                              (json-object "ab" 0) :object-key-characters)
+                        (list (make-json-limits :maximum-object-members 0)
+                              (json-object "a" 1) :object-members)
+                        (list (make-json-limits :maximum-array-elements 0) #(1) :array-elements)
+                        (list (make-json-limits :maximum-number-characters 2) 123 :number-characters)))
+      (destructuring-bind (limits value constraint) case
+        (test-equal constraint
+                    (json-limit-exceeded-constraint
+                     (test-signals json-limit-exceeded (funcall function value :limits limits))))))
+    (let ((value #()))
+      (dotimes (index 100000) (setf value (vector value)))
+      (test-signals json-limit-exceeded
+        (funcall function value :limits (make-json-limits :maximum-depth 32))))))
+
+(define-test test-transform-escaped-character-limits
+  (dolist (value (list (string (code-char 1)) "😀" (format nil "~C~C" #\Newline #\")))
+    (let ((characters (length (json-encode value))))
+      (dolist (function (list #'json-normalize #'json-encode-sorted #'json-encode-pretty))
+        (funcall function value :limits (make-json-limits :maximum-characters characters))
+        (test-equal :characters
+                    (json-limit-exceeded-constraint
+                     (test-signals json-limit-exceeded
+                       (funcall function value :limits
+                                 (make-json-limits :maximum-characters (1- characters)))))))))
+  (test-signals json-limit-exceeded
+    (json-encode-pretty #(1) :limits (make-json-limits :maximum-characters 3)))
+  (test-equal "[1]" (json-encode-sorted #(1) :limits (make-json-limits :maximum-characters 3))))

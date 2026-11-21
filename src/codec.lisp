@@ -24,12 +24,16 @@
     (arithmetic-error ()
       nil)))
 
-(-> json--encoding-value (t t) t)
-(defun json--encoding-value (value false-value)
-  "Return a validated copy of VALUE for Yason, translating FALSE-VALUE.
+(-> json--copy-value
+    (t &key (:input-false-value t) (:false-value t) (:null-value (member nil :null))
+            (:detached-p boolean) (:normalize-numbers-p boolean)) t)
+(defun json--copy-value (value &key (input-false-value (json-false))
+                                   (false-value 'yason:false) null-value
+                                   detached-p normalize-numbers-p)
+  "Validate and copy VALUE with explicit marker and scalar-copy policies.
 
-Containers are copied, nonempty lists become vectors, and circular or
-unrepresentable values signal JSON-UNREPRESENTABLE."
+Only active ancestors are remembered: every occurrence of shared acyclic data
+gets its own container, and DETACHED-P also copies each string and object key."
   (let ((active (make-hash-table :test #'eq)))
     (labels ((container (container function)
                (when (gethash container active)
@@ -38,23 +42,34 @@ unrepresentable values signal JSON-UNREPRESENTABLE."
                (prog1 (funcall function)
                  (remhash container active)))
 
+             (text (string)
+               (if detached-p (copy-seq string) string))
+
+             (number-value (number)
+               (handler-case
+                   (let ((prepared (if (or (not (floatp number)) normalize-numbers-p)
+                                       (coerce number 'double-float)
+                                       number)))
+                     (unless (json--finite-float-p prepared)
+                       (json--unrepresentable number "JSON numbers must be finite."))
+                     prepared)
+                 (arithmetic-error ()
+                   (json--unrepresentable number "A JSON number exceeds the float range."))))
+
              (copy (value)
                (cond
-                 ((eq value false-value)
-                  'yason:false)
-                 ((or (null value) (eq value t) (eq value ':null)
-                      (eq value 'yason:true) (eq value 'yason:false))
-                  value)
+                 ((or (eq value input-false-value) (eq value 'yason:false))
+                  false-value)
+                 ((or (null value) (eq value ':null))
+                  null-value)
+                 ((json-true-p value)
+                  t)
                  ((stringp value)
-                  value)
+                  (text value))
                  ((integerp value)
                   value)
-                 ((rationalp value)
-                  (coerce value 'double-float))
-                 ((floatp value)
-                  (unless (json--finite-float-p value)
-                    (json--unrepresentable value "JSON numbers are finite, not ~S." value))
-                  value)
+                 ((realp value)
+                  (number-value value))
                  ((hash-table-p value)
                   (container
                    value
@@ -65,7 +80,7 @@ unrepresentable values signal JSON-UNREPRESENTABLE."
                                   (unless (stringp key)
                                     (json--unrepresentable
                                      key "JSON object key ~S is not a string." key))
-                                  (setf (gethash key copy) (copy child)))
+                                  (setf (gethash (text key) copy) (copy child)))
                                 value)
                        copy))))
                  ((vectorp value)
@@ -78,6 +93,11 @@ unrepresentable values signal JSON-UNREPRESENTABLE."
                  (t
                   (json--unrepresentable value "~S has no JSON representation." value)))))
       (copy value))))
+
+(-> json--encoding-value (t t) t)
+(defun json--encoding-value (value false-value)
+  "Return a validated container copy of VALUE suitable for Yason."
+  (json--copy-value value :input-false-value false-value))
 
 (-> json--yason-encode (t stream) null)
 (defun json--yason-encode (prepared stream)

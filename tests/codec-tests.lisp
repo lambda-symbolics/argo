@@ -168,3 +168,121 @@
   (dolist (source '("{\"private\":}" "[1,]" "tru"))
     (let ((condition (test-signals json-syntax-error (json-decode source))))
       (test-assert (not (typep condition 'json-trailing-data))))))
+
+
+;;;; -- Native Normalization and Formatting --
+
+(define-test test-normalization-markers-and-presence
+  (let* ((value (json-object "a" (vector (json-false) nil :null 'yason:false
+                                        'yason:true #() (json-object))))
+         (copy  (json-normalize value)))
+    (test-assert (not (eq value copy)))
+    (test-equal #(:json-false nil nil :json-false t #() #())
+                (let ((array (gethash "a" copy)))
+                  (concatenate 'vector (subseq array 0 6)
+                               (vector (make-array (hash-table-count (aref array 6))))))
+                :test #'equalp)
+    (test-equal '(nil nil) (multiple-value-list (gethash "missing" copy)))
+    (dolist (policy (list (list (json-false) nil) (list 'yason:false :null)))
+      (destructuring-bind (false null) policy
+        (let* ((normalized (json-normalize value :false-value false :null-value null))
+               (array      (gethash "a" normalized)))
+          (test-assert (eq false (aref array 0)))
+          (test-assert (eq false (aref array 3)))
+          (test-assert (eq null (aref array 1)))
+          (test-assert (eq null (aref array 2)))))))
+  (let* ((input  (gensym "INPUT-FALSE"))
+         (output (gensym "OUTPUT-FALSE"))
+         (copy   (json-normalize (vector input nil) :input-false-value input
+                                                     :false-value output :null-value :null)))
+    (test-assert (eq output (aref copy 0)))
+    (test-equal :null (aref copy 1)))
+  (test-equal #(:json-false :null)
+              (json-normalize (vector nil :null) :input-false-value nil :null-value :null)
+              :test #'equalp))
+
+(define-test test-normalization-independent-occurrences
+  (let* ((key        (copy-seq "key"))
+         (text       (copy-seq "text"))
+         (child      (json-object key (vector text)))
+         (source     (vector child child))
+         (copy       (json-normalize source))
+         (first      (aref copy 0))
+         (second     (aref copy 1))
+         (first-key  (loop for key being the hash-keys of first return key))
+         (second-key (loop for key being the hash-keys of second return key)))
+    (test-assert (not (eq first second)))
+    (test-assert (not (eq first-key second-key)))
+    (test-assert (not (eq key first-key)))
+    (test-assert (not (eq (gethash "key" first) (gethash "key" second))))
+    (setf (char (aref (gethash "key" first) 0) 0) #\X)
+    (test-equal "text" text)
+    (test-equal "text" (aref (gethash "key" second) 0))
+    (setf (char first-key 0) #\K)
+    (test-equal "key" key)
+    (test-equal "key" second-key)))
+
+(define-test test-normalization-numeric-codec-parity
+  (dolist (value (list 0 -1 (expt 10 100) 1/3 -7/2 0.1f0 -0.0f0 0.1d0 -0.0d0
+                       least-positive-single-float least-positive-double-float
+                       least-positive-normalized-double-float most-positive-double-float))
+    (let ((old (json-decode (json-encode value)))
+          (new (json-normalize value)))
+      (test-equal old new :test #'eql)
+      (when (floatp new)
+        (test-assert (typep new 'double-float))
+        (test-equal (float-sign old) (float-sign new) :test #'eql))))
+  (test-equal #(1 2.5d0) (json-normalize (list 1 5/2)) :test #'equalp))
+
+(define-test test-transforms-reject-invalid-values
+  (let ((cycle (vector nil)))
+    (setf (aref cycle 0) cycle)
+    (dolist (function (list #'json-normalize #'json-encode-sorted #'json-encode-pretty))
+      (dolist (value (list cycle (cons 1 2) :invalid #\a (complex 1 2)
+                           (let ((table (make-hash-table)))
+                             (setf (gethash 1 table) 2)
+                             table)))
+        (test-signals json-unrepresentable (funcall function value))))))
+
+(define-test test-sorted-encoding-codec-parity
+  (labels ((old (value)
+             (with-output-to-string (stream)
+               (labels ((emit (value)
+                          (cond
+                            ((hash-table-p value)
+                             (write-char #\{ stream)
+                             (loop for key in (sort (loop for key being the hash-keys of value
+                                                        collect key) #'string<)
+                                   for first-p = t then nil
+                                   do (unless first-p (write-char #\, stream))
+                                      (write-string (json-encode key) stream)
+                                      (write-char #\: stream)
+                                      (emit (gethash key value)))
+                             (write-char #\} stream))
+                            ((and (vectorp value) (not (stringp value)))
+                             (write-char #\[ stream)
+                             (loop for child across value for first-p = t then nil
+                                   do (unless first-p (write-char #\, stream)) (emit child))
+                             (write-char #\] stream))
+                            (t
+                             (write-string (json-encode value) stream)))))
+                 (emit (json-decode (json-encode value)))))))
+    (let ((value (json-object "z" (list 0.1f0 1/3 :null (json-false))
+                              "a" (json-object "B" "é😀\"\\" "A" #()) "0" nil)))
+      (test-equal (old value) (json-encode-sorted value))
+      (test-equal (json-encode-sorted value)
+                  (json-encode-sorted
+                   (json-object "0" nil "a" (gethash "a" value) "z" (gethash "z" value))))))
+  (test-equal "{\"A\":2,\"a\":1,\"z\":[false,null,[]]}"
+              (json-encode-sorted (json-object "z" (vector 'yason:false :null #())
+                                               "a" 1 "A" 2))))
+
+(define-test test-pretty-encoding-structure-and-strings
+  (let ((value (json-object "a" (vector "a,:[{}]\\\"" (json-object) #())
+                            "b" (json-false))))
+    (test-equal (format nil "{~%  \"a\": [~%    \"a,:[{}]\\\\\\\"\",~%    {},~%    []~%  ],~%  \"b\": false~%}")
+                (json-encode-pretty value))
+    (test-assert (json-value-equal-p value (json-decode (json-encode-pretty value)))))
+  (test-equal "[]" (json-encode-pretty #()))
+  (test-equal "{}" (json-encode-pretty (json-object)))
+  (test-equal "false" (json-encode-pretty (json-false))))

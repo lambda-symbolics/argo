@@ -13,6 +13,9 @@
    #:json-object-copy
    #:json-get
    #:json-get-present
+   #:json-path-get-present
+   #:json-value-equal-p
+   #:json-normalize
    #:json-false
    #:json-false-p
    #:json-true-p
@@ -22,6 +25,8 @@
    ;; Codec
    #:json-encode
    #:json-encode-utf8
+   #:json-encode-sorted
+   #:json-encode-pretty
    #:json-decode
    #:json-object-source-p
    ;; Limits

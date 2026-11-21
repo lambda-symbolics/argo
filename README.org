@@ -41,6 +41,20 @@ The shallow copy and access functions accept any hash table without validating
 its keys; =JSON-OBJECT-P= checks string keys. =JSON-GET-PRESENT= accepts
 =:false-value= to present a caller-selected marker as =NIL=.
 
+=JSON-NORMALIZE= validates and deeply detaches a value without a text roundtrip.
+It copies every occurrence of each object, array, string and key independently,
+converts nonempty lists to vectors and noninteger numbers to double floats,
+and selects input and output false markers separately with =:input-false-value=
+and =:false-value=. =:null-value= selects =NIL= or =:NULL= for output nulls.
+The =:limits= option includes the compact escaped character count.
+
+=JSON-VALUE-EQUAL-P= compares acyclic JSON trees with case-sensitive object
+keys and strings, numeric equality, and ordered arrays. False, null and missing
+members are distinct. =JSON-PATH-GET-PRESENT= returns a raw value and a presence
+flag: strings select object keys, integers select array positions, and
+=:decimal-indices-p= additionally accepts decimal strings only at arrays.
+An empty path selects the root.
+
 * Decoding
 
 =JSON-DECODE= accepts exactly one JSON value surrounded by optional
@@ -66,6 +80,13 @@ than the boolean and null markers, a character, a function, a complex
 number, an infinite or NaN float, a dotted or circular list, a non-string
 object key, or a container that contains itself all signal
 =JSON-UNREPRESENTABLE=. Shared substructure is fine.
+
+=JSON-ENCODE-SORTED= normalizes values and sorts object keys case-sensitively
+at every level. Its compact output is a deterministic application profile,
+not RFC 8785. =JSON-ENCODE-PRETTY= preserves object iteration order and uses
+=:indentation= spaces per level, defaulting to two, with compact empty
+containers and no final newline. Both accept =:false-value= and =:limits=;
+the character bound applies to the actual escaped and formatted output.
 
 * Limits
 
